@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 @layer base {
   body {
@@ -94,7 +93,18 @@
 }
 
 #qr-reader__dashboard_section_csr button {
-  @apply btn-secondary py-2 text-sm !important;
+  background-color: rgb(30, 41, 59) !important;
+  color: rgb(241, 245, 249) !important;
+  border: 1px solid rgba(71, 85, 105, 0.6) !important;
+  font-weight: 500 !important;
+  padding: 0.5rem 1.25rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s !important;
+}
+
+#qr-reader__dashboard_section_csr button:hover {
+  background-color: rgb(51, 65, 85) !important;
+  border-color: rgba(100, 116, 139, 0.8) !important;
 }
 
 /* Print Sheets Layout Styles */
