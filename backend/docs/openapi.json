@@ -1,0 +1,325 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Event QR Management Platform API",
+    "description": "Production-ready backend API managing event settings, secure QR lookup/scanning, administrative modifications with password confirmation, staff management, audit logging, and realtime sync.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Base API URL path"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "StandardResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Operation executed successfully."
+          },
+          "data": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "string",
+            "example": "INVALID_PARAMS"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user",
+        "description": "Looks up the email corresponding to the username and logs the user in via Supabase Auth.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": { "type": "string", "example": "john_staff" },
+                  "password": { "type": "string", "example": "secretPassword123" }
+                },
+                "required": ["username", "password"]
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Authentication successful",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/StandardResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reauth": {
+      "post": {
+        "summary": "Admin Re-authentication",
+        "description": "Confirms administrator's password before running destructive operations.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": { "type": "string", "example": "adminPass456" }
+                },
+                "required": ["password"]
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Confirmation successful",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/StandardResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/event": {
+      "get": {
+        "summary": "Get event settings",
+        "description": "Fetches currently active event information. Accessible publicly.",
+        "responses": {
+          "200": {
+            "description": "Event settings data"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update event settings",
+        "description": "Updates details such as event date, name, prefixes, starting number, and defaults. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "eventName": { "type": "string" },
+                  "qrPrefix": { "type": "string" },
+                  "startingNumber": { "type": "integer" },
+                  "defaultMaxUsage": { "type": "integer" },
+                  "description": { "type": "string" },
+                  "venue": { "type": "string" },
+                  "eventDate": { "type": "string" },
+                  "contactDetails": { "type": "string" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Event settings updated"
+            }
+          }
+        }
+      }
+    },
+    "/qr/lookup/{token}": {
+      "get": {
+        "summary": "Lookup QR code information",
+        "description": "Finds a QR details by secure token. Returns public or staff details depending on header permissions.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR data details"
+          }
+        }
+      }
+    },
+    "/qr/scan/{token}": {
+      "post": {
+        "summary": "Scan & Increment QR",
+        "description": "Increments the scan count of a QR code by 1 atomically. Staff or Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deviceInfo": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "QR check-in updated successfully"
+          }
+        }
+      }
+    },
+    "/qr/admin/bulk": {
+      "post": {
+        "summary": "Asynchronous Bulk QR Generation",
+        "description": "Generates a list of QRs based on current configuration and starting numbers. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "count": { "type": "integer", "example": 500 },
+                  "description": { "type": "string", "example": "General Entry Passes" }
+                },
+                "required": ["count"]
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Bulk generation triggered"
+            }
+          }
+        }
+      }
+    },
+    "/qr/admin/action": {
+      "post": {
+        "summary": "Perform Administrative Actions on QR",
+        "description": "Administrators can increase, decrease, reset usage, modify max usage, or toggle enable state of a QR. Requires password validation for destructive options.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "qrId": { "type": "string", "example": "JUBICON-0005" },
+                  "action": { "type": "string", "enum": ["increase", "decrease", "reset", "change_max", "toggle_disable", "edit_desc"] },
+                  "paramVal": { "type": "string", "example": "5" },
+                  "confirmPassword": { "type": "string", "example": "adminPass123" }
+                },
+                "required": ["qrId", "action"]
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Admin operation completed"
+            }
+          }
+        }
+      }
+    },
+    "/staff": {
+      "get": {
+        "summary": "List & Search Staff",
+        "description": "Returns profiles of role 'staff' along with their scan counts. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of staff profiles" }
+        }
+      },
+      "post": {
+        "summary": "Create Staff Account",
+        "description": "Creates auth credentials in auth.users and profile inside profiles table. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Jane Doe" },
+                  "username": { "type": "string", "example": "jane_doe" },
+                  "password": { "type": "string", "example": "staffPassword99" }
+                },
+                "required": ["name", "username", "password"]
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Staff account created" }
+          }
+        }
+      }
+    },
+    "/backup/export": {
+      "get": {
+        "summary": "Export database JSON dump",
+        "description": "Backup all tables to a unified JSON file. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "JSON download of full system backups" }
+        }
+      }
+    },
+    "/backup/import": {
+      "post": {
+        "summary": "Import database JSON dump",
+        "description": "Restore all tables from a provided backup JSON file. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "backupData": { "type": "object" }
+                },
+                "required": ["backupData"]
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "System successfully restored" }
+          }
+        }
+      }
+    }
+  }
+}
